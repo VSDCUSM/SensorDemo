@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">Sensor Demo</string>
+    <string name="text_light">Current Light: %f</string>
+    <string name="text_accuracy">Accuracy: %d</string>
+    <string name="text_list">List of available sensors:</string>
+    <string name="type_acc">\n- Accelerometer</string>
+    <string name="type_amb">\n- Ambient temperature</string>
+    <string name="type_grav">\n- Gravity</string>
+    <string name="type_gyro">\n- Gyroscope</string>
+    <string name="type_light">\n- Light</string>
+    <string name="type_lin">\n- Linear acceleration</string>
+    <string name="type_mag">\n- Magnetometer</string>
+    <string name="type_pres">\n- Pressure</string>
+    <string name="type_prox">\n- Proximity</string>
+    <string name="type_humid">\n- Relative humidity</string>
+    <string name="type_rot">\n- Rotation vector</string>
 </resources>
