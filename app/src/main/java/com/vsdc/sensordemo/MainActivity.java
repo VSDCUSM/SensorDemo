@@ -2,12 +2,16 @@ package com.vsdc.sensordemo;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -20,9 +24,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Declare sensor manager and sensor object
     private SensorManager mSensorManager;
     private Sensor mLight;
-    // Declare handles to Textview
+    // Declare handles to Textview and Button
     private TextView mTextLight;
     private TextView mTextAccuracy;
+    private Button mBtnBLE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,6 +104,23 @@ public class MainActivity extends Activity implements SensorEventListener {
         // Initialize handles
         mTextLight = (TextView) findViewById(R.id.textview_light);
         mTextAccuracy = (TextView) findViewById(R.id.textview_accuracy);
+
+        // Check for Bluetooth Low Energy
+        mBtnBLE = (Button) findViewById(R.id.btn_ble);
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            mBtnBLE.setText(getString(R.string.btn_text_ble_na));
+            mBtnBLE.setEnabled(false);
+        }else{
+            // Define click action
+            mBtnBLE.setOnClickListener(new View.OnClickListener(){
+                @Override
+                public void onClick(View view) {
+                    // Call up BLEActivity
+                    Intent intent = new Intent(getBaseContext(), BLEActivity.class);
+                    startActivity(intent);
+                }
+            });
+        }
     }
 
     @Override
