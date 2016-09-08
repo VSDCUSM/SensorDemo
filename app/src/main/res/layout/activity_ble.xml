@@ -8,6 +8,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/btn_text_ble_scan" />
+    <Button
+        android:id="@+id/btn_ble_advertise"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_text_ble_advertise" />
     <ListView
         android:id="@+id/listview_devices"
         android:layout_width="match_parent"
