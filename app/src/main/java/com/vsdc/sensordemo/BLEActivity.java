@@ -1,250 +1,132 @@
 package com.vsdc.sensordemo;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
-import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.AdvertiseCallback;
-import android.bluetooth.le.AdvertiseData;
-import android.bluetooth.le.AdvertiseSettings;
-import android.bluetooth.le.BluetoothLeAdvertiser;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanResult;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.ParcelUuid;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.UUID;
 
-@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2) //This activity works for API level 18 and above only
-public class BLEActivity extends Activity {
+public class BLEActivity extends BLEFramework.BLECoreActivity {
     private static final String LOG_TAG = BLEActivity.class.getSimpleName();
     private static final long SCAN_PERIOD = 10000; // Stops scanning after 10 seconds
-    private static final int PERMISSION_COARSE_LOCATION = 1;
+
+    private BLEFramework mBleFramework;
 
     private DeviceListAdapter mBLEDeviceListAdapter;
-    private BluetoothAdapter mBluetoothAdapter;
-    private BluetoothLeScanner mBLEScanner;
-
-    private int REQUEST_ENABLE_BT = 1; // Request code for Intent to enable Bluetooth
-
-    private BluetoothLeAdvertiser mBLEAdvertiser;
-    private AdvertiseData mBLEData;
-    private AdvertiseSettings mBLEAdSettings;
-
-    private boolean mScanning; // Whether the app is scanning for BLE devices
-    private Handler mHandler;
     private Button mBtnScan;
     private Button mBtnAdvertise;
+    private Button mBtnPeriodicScan;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ble);
-        mHandler = new Handler(); // For scanning timeout
+        mBleFramework = new BLEFramework(this);
 
-        // Get Bluetooth Adapter
-        final BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-        // Check if Bluetooth is enabled
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            // Prompt user to enable Bluetooth if not enabled
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-        // Get BLE Scanner
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mBLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
-        }
-
-        // Request runtime permission for Android Marshmallow and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
-            if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED){
-                Toast.makeText(this, R.string.ble_permission_request, Toast.LENGTH_SHORT).show();
-                requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                        PERMISSION_COARSE_LOCATION);
-            }
-        }
         // Set button listener
         mBtnScan = (Button) findViewById(R.id.btn_ble_scan);
         mBtnScan.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View view){
-                // Scan for devices
-                if (!mScanning){ // If not currently scanning
-                    // Schedule scan to stop after SCAN_PERIOD
-                    mHandler.postDelayed(new Runnable(){
-                        @Override
-                        public void run(){
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
-                                mBLEScanner.stopScan(mScanCallback);
-                            }else{
-                                mBluetoothAdapter.stopLeScan(mBLEScanCallback);
-                            }
-                            mScanning = false;
-                            mBtnScan.setText(getString(R.string.btn_text_ble_scan));
-                        }
-                    }, SCAN_PERIOD);
-                    // Start scan
-                    mScanning = true;
-                    mBtnScan.setText(getString(R.string.btn_text_ble_scanning));
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
-                        mBLEScanner.startScan(mScanCallback);
-                    }else{
-                        mBluetoothAdapter.startLeScan(mBLEScanCallback);
-                    }
+                if (mBtnScan.getText().toString().equals(
+                        getString(R.string.btn_text_ble_scanning))){
+                    // Actively scanning
+                    mBleFramework.bleStopScan();
+                }else{
+                    mBleFramework.bleStartScan();
+                }
+            }
+        });
+        mBtnAdvertise = (Button) findViewById(R.id.btn_ble_advertise);
+        mBtnAdvertise.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view){
+                if (mBtnAdvertise.getText().toString().equals(
+                        getString(R.string.btn_text_ble_advertising))){
+                    // Actively advertising
+                    mBleFramework.bleStopAdvertise();
+                    mBtnAdvertise.setText(R.string.btn_text_ble_advertise);
+                }else{
+                    mBleFramework.bleStartAdvertise();
+                    mBtnAdvertise.setText(R.string.btn_text_ble_advertising);
+                }
+            }
+        });
+        mBtnPeriodicScan = (Button) findViewById(R.id.btn_ble_periodic_scan);
+        mBtnPeriodicScan.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view){
+                if (mBtnPeriodicScan.getText().toString().equals(
+                        getString(R.string.btn_text_ble_periodic_scanning))){
+                    // Periodic scan is active
+                    mBleFramework.bleStopPeriodicScan();
+                    mBtnPeriodicScan.setText(R.string.btn_text_ble_periodic_scan);
+                    mBtnScan.setEnabled(true);
+                }else{
+                    mBleFramework.bleStartPeriodicScan(10000, 5000);
+                    mBtnPeriodicScan.setText(R.string.btn_text_ble_periodic_scanning);
+                    mBtnScan.setEnabled(false);
                 }
             }
         });
 
-        mBtnAdvertise = (Button) findViewById(R.id.btn_ble_advertise);
-        // Check if multiple advertisement is supported
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
-            if(mBluetoothAdapter.isMultipleAdvertisementSupported()){
-                // Get BLE advertiser
-                mBLEAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
-                // Initialize settings
-                mBLEAdSettings = new AdvertiseSettings.Builder()
-                        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-                        .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-                        .setConnectable(false).build();
-                // Create ParcelUUID
-                UUID uuid = UUID.randomUUID();
-                ParcelUuid pUuid = new ParcelUuid(uuid);
-                Toast.makeText(this, uuid.toString(), Toast.LENGTH_SHORT).show();
-                // Create advertisement data
-                mBLEData = new AdvertiseData.Builder()
-                        .setIncludeDeviceName(false)
-                        .addServiceUuid(pUuid)
-                        .addServiceData(pUuid, "Data".getBytes(Charset.forName("UTF-8")))
-                        .build();
-                // Define AdvertiseCallback
-                final AdvertiseCallback callback = new AdvertiseCallback() {
-                    @Override
-                    public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-                        Log.d(LOG_TAG, "AdvertiseCallback onStartSuccess");
-                        super.onStartSuccess(settingsInEffect);
-                        mBtnAdvertise.setText(R.string.btn_text_ble_advertising);
-                    }
-                    @Override
-                    public void onStartFailure(int errorCode) {
-                        Log.e(LOG_TAG, "Advertising onStartFailure: " + errorCode );
-                        super.onStartFailure(errorCode);
-                    }
-                };
-                // Set click listener on button
-                mBtnAdvertise.setOnClickListener(new View.OnClickListener(){
-                    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-                    @Override
-                    public void onClick(View view){
-                        if (mBtnAdvertise.getText().toString().equals(
-                                getString(R.string.btn_text_ble_advertising))){
-                            // Actively advertising
-                            Log.d(LOG_TAG, "Stopping advertisement");
-                            mBLEAdvertiser.stopAdvertising(callback);
-                            mBtnAdvertise.setText(R.string.btn_text_ble_advertise);
-                        }else{
-                            Log.d(LOG_TAG, "Starting advertisement");
-                            mBLEAdvertiser.startAdvertising(mBLEAdSettings, mBLEData, callback);
-                        }
-                    }
-                });
-            }
-        }else{
-            Toast.makeText(this, R.string.ble_multiple_ad_unsupported, Toast.LENGTH_SHORT)
-                    .show();
-            mBtnAdvertise.setEnabled(false);
-        }
-
         // Set adapter
-        mBLEDeviceListAdapter = new DeviceListAdapter();
+        mBLEDeviceListAdapter = new DeviceListAdapter(mBleFramework.getBLEDevicesFound());
         ((ListView) findViewById(R.id.listview_devices)).setAdapter(mBLEDeviceListAdapter);
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data){
-        if (requestCode == REQUEST_ENABLE_BT && resultCode != RESULT_OK){
-            // If user doesn't enable Bluetooth
-            // Alert the user
-            Toast.makeText(this, R.string.ble_enable_fail, Toast.LENGTH_SHORT).show();
-            // Return to the previous activity
-            finish();
-        }
+    protected void onPause(){
+        super.onPause();
+        // Stop scanning and advertising to avoid draining battery (MAY CAUSE PROBLEM FOR BACKGROUND SERVICE)
+        mBleFramework.bleStopScan();
+        mBleFramework.bleStopAdvertise();
+        mBleFramework.bleStopPeriodicScan();
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results){
-        if (requestCode == PERMISSION_COARSE_LOCATION){
-            if (results[0] == PackageManager.PERMISSION_GRANTED){
-                Log.d(LOG_TAG, "Coarse location permission granted.");
-                mBtnScan.setEnabled(true);
-            }else{
-                Log.d(LOG_TAG, "Coarse location permission denied.");
-                Toast.makeText(this, R.string.ble_permission_denied, Toast.LENGTH_SHORT).show();
-                mBtnScan.setEnabled(false);
-            }
+    public void bleNotify(BLEFramework.BLEEvent bleEvent){
+        switch (bleEvent){
+            case scanStarted:
+                mBtnScan.setText(getString(R.string.btn_text_ble_scanning));
+                break;
+            case scanStopped:
+                mBtnScan.setText(getString(R.string.btn_text_ble_scan));
+                break;
+            case scanFoundNew:
+                mBLEDeviceListAdapter.updateDeviceList(mBleFramework.getBLEDevicesFound());
+                mBLEDeviceListAdapter.notifyDataSetChanged();
+                break;
+            case scanFailed:
+                /////
+                break;
+            case adStarted:
+                mBtnAdvertise.setText(R.string.btn_text_ble_advertising);
+                break;
+            case adStopped:
+                mBtnAdvertise.setText(R.string.btn_text_ble_advertise);
+                break;
+            case adFailed:
+                /////
+                break;
         }
     }
 
-    private BluetoothAdapter.LeScanCallback mBLEScanCallback =
-            new BluetoothAdapter.LeScanCallback(){
-        @Override
-        public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
-            Toast.makeText(getApplicationContext(), "Found a device!", Toast.LENGTH_SHORT)
-                    .show();
-            mBLEDeviceListAdapter.addDevice(device);
-            mBLEDeviceListAdapter.notifyDataSetChanged();
-        }
-    };
 
-    @SuppressLint("NewApi")
-    private ScanCallback mScanCallback = new ScanCallback(){
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
-            BluetoothDevice device = result.getDevice();
-            // Alert device name, address and rssi
-            StringBuffer info = new StringBuffer();
-            info.append(device.getName() + "\n");
-            info.append(device.getAddress() + "\n");
-            info.append(result.getRssi());
-            Toast.makeText(getApplicationContext(), info.toString(), Toast.LENGTH_SHORT).show();
-            mBLEDeviceListAdapter.addDevice(result.getDevice());
-            mBLEDeviceListAdapter.notifyDataSetChanged();
-        }
-        @Override
-        public void onScanFailed(int errorCode){
-            Toast.makeText(getApplicationContext(), "Scan failed!", Toast.LENGTH_SHORT).show();
-        }
-    };
-
-    // Customised list adapter (BaseAdapter) for list of BLE devices found.
+    /**
+     * Customised list adapter (BaseAdapter) for list of BLE devices found.
+     */
     private class DeviceListAdapter extends BaseAdapter{
         private ArrayList<BluetoothDevice> mBLEDevices;
 
-        public DeviceListAdapter(){
+        public DeviceListAdapter(ArrayList<BluetoothDevice> bleDevices){
             super();
-            mBLEDevices = new ArrayList<BluetoothDevice>();
+            mBLEDevices = bleDevices;
         }
         @Override
         public int getCount(){
@@ -275,13 +157,10 @@ public class BLEActivity extends Activity {
                 mTextDeviceName.setText(R.string.ble_unknown_device);
             }
             mTextDeviceAddress.setText(device.getAddress());
-            return null;
+            return view;
         }
-        public void addDevice(BluetoothDevice device){
-            // Add found device to list
-            if (!mBLEDevices.contains(device)){
-                mBLEDevices.add(device);
-            }
+        public void updateDeviceList(ArrayList<BluetoothDevice> bleDevices){
+            mBLEDevices = bleDevices;
         }
     }
 }

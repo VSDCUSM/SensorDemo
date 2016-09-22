@@ -4,9 +4,11 @@
     <string name="btn_text_ble_na">Bluetooth Low Energy is not supported</string>
     <string name="ble_enable_fail">Please enable Bluetooth to proceed!</string>
     <string name="btn_text_ble_scan">Scan for devices</string>
-    <string name="btn_text_ble_scanning">Scanning...</string>
+    <string name="btn_text_ble_scanning">Scanning now...</string>
+    <string name="btn_text_ble_periodic_scan">Periodic scan: 10 sec scan, 5 sec wait</string>
+    <string name="btn_text_ble_periodic_scanning">Periodically scanning...</string>
     <string name="btn_text_ble_advertise">Advertise</string>
-    <string name="btn_text_ble_advertising">Advertising...</string>
+    <string name="btn_text_ble_advertising">Advertising now...</string>
     <string name="ble_unknown_device">Unknown device</string>
     <string name="ble_permission_request">Please grant location access for BLE scan</string>
     <string name="ble_permission_denied">Location access denied! BLE scanning cannot work!</string>
