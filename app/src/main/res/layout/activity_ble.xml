@@ -2,25 +2,64 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" >
-    <Button
-        android:id="@+id/btn_ble_scan"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_text_ble_scan" />
-    <Button
-        android:id="@+id/btn_ble_periodic_scan"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/btn_ble_scan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_text_ble_scan" />
+        <Button
+            android:id="@+id/btn_ble_periodic_scan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_text_ble_periodic_scan" />
+        <Button
+            android:id="@+id/btn_ble_advertise"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_text_ble_advertise" />
+    </LinearLayout>
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_text_ble_periodic_scan" />
-    <Button
-        android:id="@+id/btn_ble_advertise"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/btn_log"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LOG"/>
+        <TextView
+            android:id="@+id/txt_scan_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
+        <TextView
+            android:id="@+id/txt_ad_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
+        <TextView
+            android:id="@+id/txt_notification"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+    <TextView
+        android:id="@+id/txt_uuid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+    <EditText
+        android:id="@+id/edit_log"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_text_ble_advertise" />
-
+        android:layout_height="match_parent"
+        android:text="LOG"
+        android:textSize="12sp"
+        android:visibility="gone"/>
     <ListView
         android:id="@+id/listview_devices"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"/>
 </LinearLayout>

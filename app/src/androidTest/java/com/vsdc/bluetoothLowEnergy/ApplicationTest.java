@@ -1,4 +1,4 @@
-package com.vsdc.sensordemo;
+package com.vsdc.bluetoothLowEnergy;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

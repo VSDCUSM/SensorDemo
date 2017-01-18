@@ -1,31 +1,14 @@
 <resources>
-    <string name="app_name">Sensor Demo</string>
-    <string name="btn_text_ble">Bluetooth Low Energy</string>
-    <string name="btn_text_ble_na">Bluetooth Low Energy is not supported</string>
+    <string name="app_name">BLE</string>
     <string name="ble_enable_fail">Please enable Bluetooth to proceed!</string>
-    <string name="btn_text_ble_scan">Scan for devices</string>
-    <string name="btn_text_ble_scanning">Scanning now...</string>
-    <string name="btn_text_ble_periodic_scan">Periodic scan: 10 sec scan, 5 sec wait</string>
-    <string name="btn_text_ble_periodic_scanning">Periodically scanning...</string>
+    <string name="btn_text_ble_scan">Scan</string>
+    <string name="btn_text_ble_scanning">Scanning&#8230;</string>
+    <string name="btn_text_ble_periodic_scan">Periodic scan</string>
+    <string name="btn_text_ble_periodic_scanning">Periodic scanning&#8230;</string>
     <string name="btn_text_ble_advertise">Advertise</string>
-    <string name="btn_text_ble_advertising">Advertising now...</string>
+    <string name="btn_text_ble_advertising">Advertising&#8230;</string>
     <string name="ble_unknown_device">Unknown device</string>
     <string name="ble_permission_request">Please grant location access for BLE scan</string>
     <string name="ble_permission_denied">Location access denied! BLE scanning cannot work!</string>
     <string name="ble_multiple_ad_unsupported">Multiple advertisement is unsupported</string>
-    <string name="ble_uuid">0000ABCD-0000-1000-8000-00805F9B34FB</string>
-    <string name="text_light">Current Light: %f</string>
-    <string name="text_accuracy">Accuracy: %d</string>
-    <string name="text_list">List of available sensors:</string>
-    <string name="type_acc">\n- Accelerometer</string>
-    <string name="type_amb">\n- Ambient temperature</string>
-    <string name="type_grav">\n- Gravity</string>
-    <string name="type_gyro">\n- Gyroscope</string>
-    <string name="type_light">\n- Light</string>
-    <string name="type_lin">\n- Linear acceleration</string>
-    <string name="type_mag">\n- Magnetometer</string>
-    <string name="type_pres">\n- Pressure</string>
-    <string name="type_prox">\n- Proximity</string>
-    <string name="type_humid">\n- Relative humidity</string>
-    <string name="type_rot">\n- Rotation vector</string>
 </resources>

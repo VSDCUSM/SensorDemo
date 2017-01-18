@@ -1,4 +1,4 @@
-package com.vsdc.sensordemo;
+package com.vsdc.bluetoothLowEnergy;
 
 import org.junit.Test;
 
