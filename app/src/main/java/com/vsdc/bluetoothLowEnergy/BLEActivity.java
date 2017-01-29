@@ -1,11 +1,20 @@
 package com.vsdc.bluetoothLowEnergy;
 
+import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.TaskStackBuilder;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.ParcelUuid;
-import android.os.SystemClock;
+import android.text.InputFilter;
+import android.text.Spanned;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,12 +36,14 @@ public class BLEActivity extends BLEFrameworkActivity{
     private static final String LOG_TAG = BLEActivity.class.getSimpleName();
 
     private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("HH:mm:ss");
+    private static final int RECONN_NOTIFY_ID = 1;
+    private static final int DISCONN_NOTIFY_ID = 2;
 
     private DeviceListAdapter mBLEDeviceListAdapter;
     private Button mBtnScan, mBtnAdvertise, mBtnPeriodicScan;
 
     private TextView mTxtScanStatus, mTxtAdStatus, mTxtNotification, mTxtUuid;
-    private EditText mEditLog;
+    private EditText mEditLog, mEditAdName;
     private Button mBtnLog;
 
     @Override
@@ -75,7 +86,13 @@ public class BLEActivity extends BLEFrameworkActivity{
             @Override
             public void onClick(View view){
                 if (getAdStatus() == AdStatus.stopped){
+                    if (!setAdvertisedName(mEditAdName.getText().toString())){
+                        mEditAdName.setBackgroundResource(R.drawable.edit_border_error);
+                    }else{
+                        mEditAdName.setBackgroundResource(android.R.drawable.editbox_background);
+                    }
                     bleStartAdvertise();
+                    mEditAdName.setText(getAdNameInUse());
                 }else{
                     bleStopAdvertise();
                 }
@@ -109,6 +126,27 @@ public class BLEActivity extends BLEFrameworkActivity{
                 }
             }
         });
+        // Set edit text filters
+        mEditAdName = (EditText) findViewById(R.id.edit_advertised_name);
+        mEditAdName.setFilters(new InputFilter[]{
+                new InputFilter.LengthFilter(3),
+                new InputFilter(){
+                    @Override
+                    public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dStart,
+                                               int dEnd){
+                        // Extract the new input
+                        String filteredStr = source.subSequence(start, end).toString();
+                        // Remove all disallowed characters
+                        filteredStr = filteredStr.replaceAll("[^A-Za-z0-9]", "");
+                        // Return the filtered text
+                        if (filteredStr.equals(source)){
+                            return null;
+                        }else{
+                            return filteredStr;
+                        }
+                    }
+                }
+        });
         // Set adapter
         mBLEDeviceListAdapter = new DeviceListAdapter(getScanResults());
         ((ListView) findViewById(R.id.listview_devices)).setAdapter(mBLEDeviceListAdapter);
@@ -123,7 +161,7 @@ public class BLEActivity extends BLEFrameworkActivity{
     }
 
     @Override
-    public void bleNotify(BLEEvent bleEvent){
+    protected synchronized void bleNotify(BLEEvent bleEvent){
         mTxtNotification.setText(bleEvent.toString());
         mTxtScanStatus.setText(getScanStatus().toString());
         mTxtAdStatus.setText(getAdStatus().toString());
@@ -151,8 +189,11 @@ public class BLEActivity extends BLEFrameworkActivity{
                         break;
                 }
                 break;
-            case scanFoundNew:
-            case scanUpdatedOld:
+            case scanAddedResult:
+            case scanUpdatedResult:
+            case scanNew:
+            case scanReconnected:
+            case scanDisconnected:
                 mBLEDeviceListAdapter.notifyDataSetChanged();
                 break;
             case scanFailed:
@@ -175,6 +216,81 @@ public class BLEActivity extends BLEFrameworkActivity{
                 /////
                 break;
         }
+    }
+    @Override
+    protected synchronized void bleNotifyNew(final ScanResult scanResult){
+        // Get device info
+        String advertisedName = extractAdvertisedName(scanResult);
+        if (advertisedName != null){ // The device is a recognised device
+            String deviceName = scanResult.getDevice().getName(),
+                    deviceAddress = scanResult.getDevice().getAddress();
+            if (deviceName == null || deviceName.length() == 0){
+                deviceName = getString(R.string.ble_unknown_device);
+            }
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Do you want to track this BLE device?")
+                    .setMessage("Device Name: " + deviceName + "\nAdvertised Name: " + advertisedName
+                            + "\nMAC Address: " + deviceAddress)
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int id){
+                            trackDevice(scanResult);
+                        }
+                    })
+                    .setNegativeButton("No", new DialogInterface.OnClickListener(){
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i){
+                            ignoreDevice(scanResult);
+                        }
+                    })
+                    .setNeutralButton("Ask me later", new DialogInterface.OnClickListener(){
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i){
+                            // Purposely left blank
+                        }
+                    });
+            builder.create().show();
+        }
+    }
+    @Override
+    protected synchronized void bleNotifyReconnection(ScanResult scanResult){
+        // Intent to open this activity from the notification
+        Intent intent = new Intent(this, BLEActivity.class);
+        // Ensure that navigating backward from the activity leads out to the home screen
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        stackBuilder.addNextIntent(intent);
+        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+        // Build notification
+        Notification reconnectionNotification = new Notification.Builder(this)
+                .setContentTitle("Tracked Device Detected")
+                .setContentText("Advertised Name: " + extractAdvertisedName(scanResult))
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build();
+        // Show notification
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.notify(RECONN_NOTIFY_ID, reconnectionNotification);
+    }
+    @Override
+    protected synchronized void bleNotifyDisconnection(ScanResult scanResult){
+        // Intent to open this activity from the notification
+        Intent intent = new Intent(this, BLEActivity.class);
+        // Ensure that navigating backward from the activity leads out to the home screen
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        stackBuilder.addNextIntent(intent);
+        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+        // Build notification
+        Notification disconnectionNotification = new Notification.Builder(this)
+                .setContentTitle("Tracked Device Disconnected")
+                .setContentText("Advertised Name: " + extractAdvertisedName(scanResult))
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build();
+        // Show notification
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.notify(DISCONN_NOTIFY_ID, disconnectionNotification);
     }
 
     /**
@@ -219,8 +335,7 @@ public class BLEActivity extends BLEFrameworkActivity{
                 mTextDeviceName.setText(R.string.ble_unknown_device);
             }
             mTextDeviceAddress.setText(bluetoothDevice.getAddress());
-            long timestampMillis = System.currentTimeMillis() - SystemClock.elapsedRealtime() +
-                    scanResult.getTimestampNanos() / 1000000;
+            long timestampMillis = extractSystemTimestampMillis(scanResult);
             Date date = new Date(timestampMillis);
             StringBuilder stringBuilder = new StringBuilder()
                     .append("Timestamp: ").append(DATE_FORMATTER.format(date))

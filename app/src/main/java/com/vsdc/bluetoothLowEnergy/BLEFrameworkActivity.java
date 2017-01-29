@@ -20,12 +20,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
+import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.Toast;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.ListIterator;
 import java.util.UUID;
 
 /**
@@ -36,10 +38,10 @@ public class BLEFrameworkActivity extends Activity{
 
     private static final int PERMISSION_COARSE_LOCATION = 1;
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
-    private static final ParcelUuid PARCEL_UUID = ParcelUuid.fromString("0000b81d-0000-1000-8000-00805f9b34fb");
+    protected static final ParcelUuid PARCEL_UUID = ParcelUuid.fromString("0000b81d-0000-1000-8000-00805f9b34fb");
 
     public enum BLEEvent{
-        scanStatusUpdated, scanFoundNew, scanUpdatedOld, scanFailed,
+        scanStatusUpdated, scanAddedResult, scanUpdatedResult, scanFailed, scanNew, scanReconnected, scanDisconnected,
         adStatusUpdated, adFailed
     }
     public enum ScanStatus{
@@ -49,17 +51,22 @@ public class BLEFrameworkActivity extends Activity{
         stopped, waiting, advertising
     }
 
-    protected AdvertiseSettings mBLEAdSettings = new AdvertiseSettings.Builder()
+    private ArrayList<String> mTrackedDevices = new ArrayList<>(), mIgnoredDevices = new ArrayList<>();
+    // Number of milliseconds since a device was last seen before that device is considered disconnected
+    private long mDisconnectionThreshold = 10000;
+
+    private AdvertiseSettings mBLEAdSettings = new AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
             .setConnectable(false)
             .build();
-    protected AdvertiseData mBLEData = new AdvertiseData.Builder()
+    private AdvertiseData mBLEData = new AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .setIncludeTxPowerLevel(true)
             .addServiceUuid(PARCEL_UUID)
-            .addServiceData(PARCEL_UUID, "Data".getBytes(Charset.forName("ASCII")))
+            .addServiceData(PARCEL_UUID, "New".getBytes(Charset.forName("ASCII")))
             .build();
+    private String mAdvertisedName = "New", mAdNameInUse = "New";
 
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothLeScanner mBLEScanner;
@@ -103,6 +110,17 @@ public class BLEFrameworkActivity extends Activity{
                     mBLEScanner.stopScan(SCAN_CALLBACK);
                     mScanStatus = ScanStatus.periodicWait;
                     bleNotify(BLEEvent.scanStatusUpdated);
+                    // Disconnect existing devices after disconnection threshold
+                    ListIterator<ScanResult> scanResultIterator = mScanResults.listIterator();
+                    while (scanResultIterator.hasNext()){
+                        ScanResult existingScanResult = scanResultIterator.next();
+                        if (System.currentTimeMillis() - extractSystemTimestampMillis(existingScanResult) >
+                                mDisconnectionThreshold){ // Check if other devices are disconnected
+                            scanResultIterator.remove();
+                            bleNotify(BLEEvent.scanDisconnected);
+                            bleNotifyDisconnection(existingScanResult);
+                        }
+                    }
                     HANDLER.postDelayed(PERIODIC_START_RUNNABLE, mWaitDuration);
                 }
             }
@@ -112,19 +130,42 @@ public class BLEFrameworkActivity extends Activity{
     // Scan callback for startScan and stopScan.
     private final ScanCallback SCAN_CALLBACK = new ScanCallback(){
         @Override
-        public void onScanResult(int callbackType, ScanResult result){
-            super.onScanResult(callbackType, result);
-            // Update scan results
-            for (int i = 0; i < mScanResults.size(); i++){
-                // Merge with existing device
-                if (mScanResults.get(i).getDevice().equals(result.getDevice())){
-                    mScanResults.set(i, result);
-                    bleNotify(BLEEvent.scanUpdatedOld);
-                    return;
+        public void onScanResult(int callbackType, ScanResult newScanResult){
+            super.onScanResult(callbackType, newScanResult);
+            boolean isExisting = false;
+            // Process existing scan results
+            ListIterator<ScanResult> scanResultIterator = mScanResults.listIterator();
+            while (scanResultIterator.hasNext()){
+                ScanResult existingScanResult = scanResultIterator.next();
+                String existingAdvertisedName = extractAdvertisedName(existingScanResult);
+                // Merge with corresponding existing device
+                if (existingScanResult.getDevice().equals(newScanResult.getDevice()) || (existingAdvertisedName != null
+                        && existingAdvertisedName.equals(extractAdvertisedName(newScanResult)))){
+                    scanResultIterator.set(newScanResult);
+                    bleNotify(BLEEvent.scanUpdatedResult);
+                    isExisting = true;
+                }else if (System.currentTimeMillis() - extractSystemTimestampMillis(existingScanResult) >
+                            mDisconnectionThreshold){ // Check if other devices are disconnected
+                    scanResultIterator.remove();
+                    bleNotify(BLEEvent.scanDisconnected);
+                    bleNotifyDisconnection(existingScanResult);
                 }
             }
-            mScanResults.add(result);
-            bleNotify(BLEEvent.scanFoundNew);
+            // Add new scan result
+            if (!isExisting){
+                mScanResults.add(newScanResult);
+                if (mTrackedDevices.contains(extractAdvertisedName(newScanResult))){
+                    // If the device is a tracked device
+                    bleNotify(BLEEvent.scanReconnected);
+                    bleNotifyReconnection(newScanResult);
+                }else if (!mIgnoredDevices.contains(extractAdvertisedName(newScanResult))){
+                    // Otherwise if the device is a newly discovered device
+                    bleNotify(BLEEvent.scanNew);
+                    bleNotifyNew(newScanResult);
+                }else{
+                    bleNotify(BLEEvent.scanAddedResult);
+                }
+            }
         }
         @Override
         public void onScanFailed(int errorCode){
@@ -338,9 +379,8 @@ public class BLEFrameworkActivity extends Activity{
      */
     public synchronized void bleStopScan(){
         if (mIsBluetoothEnabled && mBLEScanner != null && mScanStatus != ScanStatus.stopped){
-            if (mScanStatus == ScanStatus.continuousScan){
-                mBLEScanner.stopScan(SCAN_CALLBACK);
-            }else if (mScanStatus == ScanStatus.periodicScan){
+            mBLEScanner.stopScan(SCAN_CALLBACK);
+            if (mScanStatus == ScanStatus.periodicScan){
                 HANDLER.removeCallbacks(PERIODIC_STOP_RUNNABLE);
             }else if (mScanStatus == ScanStatus.periodicWait){
                 HANDLER.removeCallbacks(PERIODIC_START_RUNNABLE);
@@ -358,7 +398,16 @@ public class BLEFrameworkActivity extends Activity{
         if (mIsBluetoothEnabled && mBLEAdvertiser != null){
             // Stop any ongoing advertisement
             bleStopAdvertise();
-            // Start advertising
+            // Start advertising with the latest set advertised name
+            if (!mAdvertisedName.equals(mAdNameInUse)){
+                mBLEData = new AdvertiseData.Builder()
+                        .setIncludeDeviceName(false)
+                        .setIncludeTxPowerLevel(true)
+                        .addServiceUuid(PARCEL_UUID)
+                        .addServiceData(PARCEL_UUID, mAdvertisedName.getBytes(Charset.forName("ASCII")))
+                        .build();
+                mAdNameInUse = mAdvertisedName;
+            }
             mBLEAdvertiser.startAdvertising(mBLEAdSettings, mBLEData, mAdvertiseCallback);
             mAdStatus = AdStatus.advertising;
             Log.d(LOG_TAG, "Starting advertisement");
@@ -385,12 +434,32 @@ public class BLEFrameworkActivity extends Activity{
      *
      * @param bleEvent Type of BLE event
      */
-    public synchronized void bleNotify(BLEEvent bleEvent){
+    protected synchronized void bleNotify(BLEEvent bleEvent){
+    }
+    /**
+     * Callback for the event of discovery of a new (not tracked nor ignore) BLE device (to be overridden optionally by
+     * its subclasses).
+     *
+     * @param scanResult The last scan result corresponding to the tracked BLE device
+     */
+    protected synchronized void bleNotifyNew(ScanResult scanResult){
+    }
+    /**
+     * Callback for the event of reconnection of a tracked BLE device (to be overridden optionally by its subclasses).
+     *
+     * @param scanResult The last scan result corresponding to the tracked BLE device
+     */
+    protected synchronized void bleNotifyReconnection(ScanResult scanResult){
+    }
+    /**
+     * Callback for the event of disconnection of a tracked BLE device (to be overridden optionally by its subclasses).
+     *
+     * @param scanResult The last scan result corresponding to the tracked BLE device
+     */
+    protected synchronized void bleNotifyDisconnection(ScanResult scanResult){
     }
 
-    /**
-     * Getter for mScanResults (list of BLE devices found)
-     */
+    // Getter for mScanResults (list of BLE devices found)
     public ArrayList<ScanResult> getScanResults(){
         return mScanResults;
     }
@@ -425,5 +494,91 @@ public class BLEFrameworkActivity extends Activity{
     }
     public boolean isBluetoothEnabled(){
         return mIsBluetoothEnabled;
+    }
+
+    /**
+     * Set the advertised name for this device. This name is associated with PARCEL_UUID and will be displayed when
+     * this device is discovered through a scan. This name will only be used starting from the next advertisement.
+     *
+     * @param advertisedName The advertised name for this device (format: 3 alphanumeric letters)
+     * @return Whether the specified advertised name is acceptable or not
+     */
+    public boolean setAdvertisedName(String advertisedName){
+        if (advertisedName.matches("[A-Za-z0-9]{3}")){
+            mAdvertisedName = advertisedName;
+            return true;
+        }
+        return false;
+    }
+    // Getter for advertised name in use
+    public String getAdNameInUse(){
+        return mAdNameInUse;
+    }
+
+    /**
+     * Add the specified BLE device to the list of tracked BLE devices. The scan result must have its advertised
+     * name (used for tracking) associated with PARCEL_UUID.
+     *
+     * @param scanResult The scan result containing the specified BLE device
+     */
+    public void trackDevice(ScanResult scanResult){
+        String advertisedName = extractAdvertisedName(scanResult);
+        if (advertisedName == null){
+            Log.e(LOG_TAG, "trackDevice() only works with BLE device that have its advertised name associated with " +
+                    "PARCEL_UUID");
+        }else if (!mTrackedDevices.contains(advertisedName)){
+            mTrackedDevices.add(advertisedName);
+            Toast.makeText(this, R.string.ble_track_device, Toast.LENGTH_SHORT).show();
+        }
+    }
+    /**
+     * Add the specified BLE device to the list of ignored BLE devices. The scan result must have its advertised
+     * name (used for identification) associated with PARCEL_UUID.
+     *
+     * @param scanResult The scan result containing the specified BLE device
+     */
+    public void ignoreDevice(ScanResult scanResult){
+        String advertisedName = extractAdvertisedName(scanResult);
+        if (advertisedName == null){
+            Log.e(LOG_TAG, "ignoreDevice() only works with BLE device that have its advertised name associated with " +
+                    "PARCEL_UUID");
+        }else if (!mIgnoredDevices.contains(advertisedName)){
+            mIgnoredDevices.add(advertisedName);
+            Toast.makeText(this, R.string.ble_ignore_device, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Extract the timestamp in the specified scan result and convert it into its corresponding system timestamp
+     * (millisecond) (as will be returned by System.currentTimeMillis()).
+     *
+     * @param scanResult The specified scan result from which the timestamp will be extracted
+     * @return The corresponding system timestamp (millisecond)
+     */
+    public static long extractSystemTimestampMillis(ScanResult scanResult){
+        return System.currentTimeMillis() - SystemClock.elapsedRealtime() + scanResult.getTimestampNanos() / 1000000;
+    }
+    /**
+     * Extract the advertised name of the BLE device (associated with PARCEL_UUID) from the specified scan result.
+     *
+     * @param scanResult The specified scan result for the BLE device
+     * @return The advertised name of the BLE device, null if the BLE device does not have an advertised name
+     */
+    public static String extractAdvertisedName(ScanResult scanResult){
+        try{
+            byte[] advertisedNameBytes = scanResult.getScanRecord().getServiceData(PARCEL_UUID);
+            if (advertisedNameBytes == null){
+                return null;
+            }
+            String advertisedName = new String(advertisedNameBytes, Charset.forName("ASCII"));
+            if (advertisedName.matches("[A-Za-z0-9]{3}")){
+                return advertisedName;
+            }else{
+                return null;
+            }
+        }catch (NullPointerException e){
+            e.printStackTrace();
+            return null;
+        }
     }
 }
