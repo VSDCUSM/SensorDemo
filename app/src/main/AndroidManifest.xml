@@ -16,14 +16,25 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name="com.vsdc.bluetoothLowEnergy.BLEActivity"
-                  android:screenOrientation="portrait">
+        <activity
+            android:name=".BLEActivity"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".BLEScanService"
+            android:description="@string/service_scan_desc"
+            android:exported="false">
+        </service>
+        <service
+            android:name=".BLEAdvertiseService"
+            android:description="@string/service_ad_desc"
+            android:exported="false">
+        </service>
     </application>
 
 </manifest>

@@ -13,11 +13,6 @@
             android:layout_height="wrap_content"
             android:text="@string/btn_text_ble_scan" />
         <Button
-            android:id="@+id/btn_ble_periodic_scan"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_text_ble_periodic_scan" />
-        <Button
             android:id="@+id/btn_ble_advertise"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -33,17 +28,7 @@
             android:layout_height="wrap_content"
             android:text="LOG"/>
         <TextView
-            android:id="@+id/txt_scan_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
-        <TextView
-            android:id="@+id/txt_ad_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
-        <TextView
-            android:id="@+id/txt_notification"
+            android:id="@+id/txt_uuid"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </LinearLayout>
@@ -59,7 +44,17 @@
             android:text="ABC"
             android:maxLines="1" />
         <TextView
-            android:id="@+id/txt_uuid"
+            android:id="@+id/txt_scan_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
+        <TextView
+            android:id="@+id/txt_ad_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/activity_horizontal_margin"/>
+        <TextView
+            android:id="@+id/txt_notification"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </LinearLayout>

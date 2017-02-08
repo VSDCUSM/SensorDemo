@@ -1,10 +1,10 @@
 <resources>
     <string name="app_name">BLE</string>
+    <string name="service_scan_desc">Background BLE Scanning Service</string>
+    <string name="service_ad_desc">Background BLE Advertising Service</string>
     <string name="ble_enable_fail">Please enable Bluetooth to proceed!</string>
     <string name="btn_text_ble_scan">Scan</string>
     <string name="btn_text_ble_scanning">Scanning&#8230;</string>
-    <string name="btn_text_ble_periodic_scan">Periodic scan</string>
-    <string name="btn_text_ble_periodic_scanning">Periodic scanning&#8230;</string>
     <string name="btn_text_ble_advertise">Advertise</string>
     <string name="btn_text_ble_advertising">Advertising&#8230;</string>
     <string name="btn_hint_advertised_name">Name</string>
