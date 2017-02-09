@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.ScanResult;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
+import android.util.Log;
 
 import java.nio.charset.Charset;
 
@@ -48,5 +49,24 @@ public final class BLEUtil{
             e.printStackTrace();
             return "";
         }
+    }
+    /**
+     * Estimate the distance of this phone from the device contained in the specified scan result.
+     * Return -1.0 if the distance cannot be estimated (due to the lack of scan record or transmission power).
+     *
+     * @param scanResult The scan result containing the device whose distance from this phone is to be estimated
+     * @return The estimated distance (in meters), -1.0 if the distance cannot be estimated
+     */
+    public static double estimateDistance(ScanResult scanResult){
+        if (scanResult.getScanRecord() == null){
+            return -1.0;
+        }
+        final int TX_POWER = scanResult.getScanRecord().getTxPowerLevel(), RSSI = scanResult.getRssi();
+        if (TX_POWER == Integer.MIN_VALUE){ // The transmission power level cannot be obtained
+            return -1.0;
+        }
+        // Calculate using ITU model for indoor attenuation
+        // (refer to https://en.wikipedia.org/wiki/ITU_model_for_indoor_attenuation)
+        return Math.pow(10, (TX_POWER - RSSI + 28 - 15 - 20 * Math.log10(2450)) / 30.0);
     }
 }

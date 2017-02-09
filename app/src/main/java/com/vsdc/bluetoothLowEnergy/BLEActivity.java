@@ -398,12 +398,13 @@ public class BLEActivity extends BLEFrameworkActivity{
                     .append("Timestamp: ").append(DATE_FORMATTER.format(date))
                     .append("\t\tRSSI: ").append(scanResult.getRssi()).append(" dBm\t");
             if (scanRecord != null){
-                int pathLoss = scanRecord.getTxPowerLevel() - scanResult.getRssi();
-                // Using simplified Friis transmission equation
-                double distance = Math.pow(10, pathLoss * 0.05) * 0.125 / (4 * Math.PI);
-                stringBuilder.append("Tx: ").append(scanRecord.getTxPowerLevel()).append(" dBm\n")
-                        .append("Path loss: ").append(pathLoss).append(" dBm\t")
-                        .append("Distance: ").append(distance).append(" m");
+                stringBuilder.append("Tx: ").append(scanRecord.getTxPowerLevel()).append(" dBm\n");
+                double distance = BLEUtil.estimateDistance(scanResult);
+                if (distance < 0){
+                    stringBuilder.append("Distance: unknown");
+                }else{
+                    stringBuilder.append("Distance: ").append(String.format("%.3f", distance)).append(" m");
+                }
                 if (scanRecord.getServiceUuids() != null){
                     for (ParcelUuid parcelUuid : scanRecord.getServiceData().keySet()){
                         stringBuilder.append("\n").append(parcelUuid.getUuid().toString()).append(" -> ");
